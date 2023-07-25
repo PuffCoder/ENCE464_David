@@ -8,8 +8,11 @@ GEN_OPTS__FLAG :=
 GEN_CMDS__FLAG := 
 
 ORDERED_OBJS += \
+"./led_task.obj" \
 "./main.obj" \
+"./switch_task.obj" \
 "./tm4c123gh6pm_startup_ccs.obj" \
+"./uartstdio.obj" \
 "./FreeRTOS/croutine.obj" \
 "./FreeRTOS/event_groups.obj" \
 "./FreeRTOS/list.obj" \
@@ -20,6 +23,8 @@ ORDERED_OBJS += \
 "./FreeRTOS/portable/CCS/ARM_CM4F/port.obj" \
 "./FreeRTOS/portable/CCS/ARM_CM4F/portasm.obj" \
 "./FreeRTOS/portable/MemMang/heap_4.obj" \
+"./drivers/buttons.obj" \
+"./drivers/rgb.obj" \
 "../tm4c123gh6pm.cmd" \
 $(GEN_CMDS__FLAG) \
 -l"/Users/david/ti/TivaWare_C_Series-2.2.0.295/driverlib/ccs/Debug/driverlib.lib" \
@@ -36,10 +41,12 @@ RMDIR := rm -rf
 -include FreeRTOS/subdir_vars.mk
 -include FreeRTOS/portable/CCS/ARM_CM4F/subdir_vars.mk
 -include FreeRTOS/portable/MemMang/subdir_vars.mk
+-include drivers/subdir_vars.mk
 -include subdir_rules.mk
 -include FreeRTOS/subdir_rules.mk
 -include FreeRTOS/portable/CCS/ARM_CM4F/subdir_rules.mk
 -include FreeRTOS/portable/MemMang/subdir_rules.mk
+-include drivers/subdir_rules.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -170,8 +177,8 @@ Blink_FE.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "main.obj" "tm4c123gh6pm_startup_ccs.obj" "FreeRTOS/croutine.obj" "FreeRTOS/event_groups.obj" "FreeRTOS/list.obj" "FreeRTOS/queue.obj" "FreeRTOS/stream_buffer.obj" "FreeRTOS/tasks.obj" "FreeRTOS/timers.obj" "FreeRTOS/portable/CCS/ARM_CM4F/port.obj" "FreeRTOS/portable/CCS/ARM_CM4F/portasm.obj" "FreeRTOS/portable/MemMang/heap_4.obj" 
-	-$(RM) "main.d" "tm4c123gh6pm_startup_ccs.d" "FreeRTOS/croutine.d" "FreeRTOS/event_groups.d" "FreeRTOS/list.d" "FreeRTOS/queue.d" "FreeRTOS/stream_buffer.d" "FreeRTOS/tasks.d" "FreeRTOS/timers.d" "FreeRTOS/portable/CCS/ARM_CM4F/port.d" "FreeRTOS/portable/MemMang/heap_4.d" 
+	-$(RM) "led_task.obj" "main.obj" "switch_task.obj" "tm4c123gh6pm_startup_ccs.obj" "uartstdio.obj" "FreeRTOS/croutine.obj" "FreeRTOS/event_groups.obj" "FreeRTOS/list.obj" "FreeRTOS/queue.obj" "FreeRTOS/stream_buffer.obj" "FreeRTOS/tasks.obj" "FreeRTOS/timers.obj" "FreeRTOS/portable/CCS/ARM_CM4F/port.obj" "FreeRTOS/portable/CCS/ARM_CM4F/portasm.obj" "FreeRTOS/portable/MemMang/heap_4.obj" "drivers/buttons.obj" "drivers/rgb.obj" 
+	-$(RM) "led_task.d" "main.d" "switch_task.d" "tm4c123gh6pm_startup_ccs.d" "uartstdio.d" "FreeRTOS/croutine.d" "FreeRTOS/event_groups.d" "FreeRTOS/list.d" "FreeRTOS/queue.d" "FreeRTOS/stream_buffer.d" "FreeRTOS/tasks.d" "FreeRTOS/timers.d" "FreeRTOS/portable/CCS/ARM_CM4F/port.d" "FreeRTOS/portable/MemMang/heap_4.d" "drivers/buttons.d" "drivers/rgb.d" 
 	-$(RM) "FreeRTOS/portable/CCS/ARM_CM4F/portasm.d" 
 	-@echo 'Finished clean'
 	-@echo ' '

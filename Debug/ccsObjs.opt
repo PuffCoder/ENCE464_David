@@ -1,5 +1,8 @@
+"./led_task.obj"
 "./main.obj"
+"./switch_task.obj"
 "./tm4c123gh6pm_startup_ccs.obj"
+"./uartstdio.obj"
 "./FreeRTOS/croutine.obj"
 "./FreeRTOS/event_groups.obj"
 "./FreeRTOS/list.obj"
@@ -10,6 +13,8 @@
 "./FreeRTOS/portable/CCS/ARM_CM4F/port.obj"
 "./FreeRTOS/portable/CCS/ARM_CM4F/portasm.obj"
 "./FreeRTOS/portable/MemMang/heap_4.obj"
+"./drivers/buttons.obj"
+"./drivers/rgb.obj"
 "../tm4c123gh6pm.cmd"
 -llibc.a
 -l"/Users/david/Public/CCS/ti/TivaWare_C_Series-2.2.0.295/driverlib/ccs/Debug/driverlib.lib"

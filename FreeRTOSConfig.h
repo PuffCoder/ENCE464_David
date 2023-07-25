@@ -5,10 +5,14 @@
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_TICKLESS_IDLE                 0
-#define configCPU_CLOCK_HZ                      80000000UL
-#define configTICK_RATE_HZ                      1000
+//#define configCPU_CLOCK_HZ                      80000000UL
+#define configCPU_CLOCK_HZ                  ( ( unsigned long ) 50000000 )  // 【改】
+#define configTICK_RATE_HZ                  ( ( portTickType ) 1000 )  // 【改】
+#define configMINIMAL_STACK_SIZE            ( ( unsigned short ) 200 )  // 【改】
+#define configTOTAL_HEAP_SIZE               ( ( size_t ) ( 30000 ) )   // 【改】
+//#define configTICK_RATE_HZ                      1000
 #define configMAX_PRIORITIES                    5
-#define configMINIMAL_STACK_SIZE                128
+//#define configMINIMAL_STACK_SIZE                128
 #define configMAX_TASK_NAME_LEN                 16
 #define configUSE_16_BIT_TICKS                  0
 #define configIDLE_SHOULD_YIELD                 1
@@ -22,7 +26,7 @@
 #define configUSE_QUEUE_SETS                    0
 #define configUSE_TIME_SLICING                  0
 #define configUSE_NEWLIB_REENTRANT              0
-#define configENABLE_BACKWARD_COMPATIBILITY     0
+#define configENABLE_BACKWARD_COMPATIBILITY     1  // [改] 0->1
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 5
 #define configSTACK_DEPTH_TYPE                  uint16_t
 #define configMESSAGE_BUFFER_LENGTH_TYPE        size_t
@@ -30,7 +34,7 @@
 /* Memory allocation related definitions. */
 #define configSUPPORT_STATIC_ALLOCATION             0
 #define configSUPPORT_DYNAMIC_ALLOCATION            1
-#define configTOTAL_HEAP_SIZE                       10240
+//#define configTOTAL_HEAP_SIZE                       10240
 #define configAPPLICATION_ALLOCATED_HEAP            0
 #define configSTACK_ALLOCATION_FROM_SEPARATE_HEAP   0
 
@@ -48,7 +52,8 @@
 
 /* Co-routine related definitions. */
 #define configUSE_CO_ROUTINES                   0
-#define configMAX_CO_ROUTINE_PRIORITIES         1
+//#define configMAX_CO_ROUTINE_PRIORITIES         1
+#define configMAX_CO_ROUTINE_PRIORITIES     ( 2 )  // 【改】
 
 /* Software timer related definitions. */
 #define configUSE_TIMERS                        1
@@ -58,9 +63,14 @@
 
 /* Interrupt nesting behaviour configuration. */
 /* See https://www.freertos.org/RTOS-Cortex-M3-M4.html */
-#define configKERNEL_INTERRUPT_PRIORITY         0xE0 // Must be lowest interrupt priority
+#define configKERNEL_INTERRUPT_PRIORITY         ( 7 << 5 )    /* Priority 7, or 0xE0 as only the top three bits are implemented.  This is the lowest priority. */
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY     ( 5 << 5 )  /* Priority 5, or 0xA0 as only the top three bits are implemented. */
+
+//#define configKERNEL_INTERRUPT_PRIORITY         0xE0 // Must be lowest interrupt priority
 #define configPRIO_BITS                         3
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    (1 << 5) // Leaves priority 0 (highest) for non-RTOS interrupts
+//#define configMAX_SYSCALL_INTERRUPT_PRIORITY    (1 << 5) // Leaves priority 0 (highest) for non-RTOS interrupts
+
+
 
 /* Macro to define interrupt priority for interrupts that have ISRs that call
 FreeRTOS API functions, takes integer from 1 to 7 inclusive, lower numbers

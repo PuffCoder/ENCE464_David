@@ -1,86 +1,246 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
+//*****************************************************************************
+//
+// freertos_demo.c - Simple FreeRTOS example.
+//
+// Copyright (c) 2012-2016 Texas Instruments Incorporated.  All rights reserved.
+// Software License Agreement
+//
+// Texas Instruments (TI) is supplying this software for use solely and
+// exclusively on TI's microcontroller products. The software is owned by
+// TI and/or its suppliers, and is protected under applicable copyright
+// laws. You may not combine this software with "viral" open-source
+// software in order to form a larger program.
+//
+// THIS SOFTWARE IS PROVIDED "AS IS" AND WITH ALL FAULTS.
+// NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT
+// NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. TI SHALL NOT, UNDER ANY
+// CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL, OR CONSEQUENTIAL
+// DAMAGES, FOR ANY REASON WHATSOEVER.
+//
+// This is part of revision 2.1.3.156 of the EK-TM4C123GXL Firmware Package.
+//
+//*****************************************************************************
 
+#include <stdbool.h>
+#include <stdint.h>
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
-
-#include "driverlib/adc.h"
 #include "driverlib/gpio.h"
-#include "driverlib/interrupt.h"
 #include "driverlib/pin_map.h"
-#include "driverlib/pwm.h"
+#include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
+#include "driverlib/uart.h"
+#include "utils/uartstdio.h"
+#include "led_task.h"
+#include "switch_task.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
+//#include "pwm_fRTOS.h"
 
-#include <FreeRTOS.h>
-#include <task.h>
+#define SET_PWM_STACK 128
+
+//*****************************************************************************
+//
+//! \addtogroup example_list
+//! <h1>FreeRTOS Example (freertos_demo)</h1>
+//!
+//! This application demonstrates the use of FreeRTOS on Launchpad.
+//!
+//! The application blinks the user-selected LED at a user-selected frequency.
+//! To select the LED press the left button and to select the frequency press
+//! the right button.  The UART outputs the application status at 115,200 baud,
+//! 8-n-1 mode.
+//!
+//! This application utilizes FreeRTOS to perform the tasks in a concurrent
+//! fashion.  The following tasks are created:
+//!
+//! - An LED task, which blinks the user-selected on-board LED at a
+//!   user-selected rate (changed via the buttons).
+//!
+//! - A Switch task, which monitors the buttons pressed and passes the
+//!   information to LED task.
+//!
+//! In addition to the tasks, this application also uses the following FreeRTOS
+//! resources:
+//!
+//! - A Queue to enable information transfer between tasks.
+//!
+//! - A Semaphore to guard the resource, UART, from access by multiple tasks at
+//!   the same time.
+//!
+//! - A non-blocking FreeRTOS Delay to put the tasks in blocked state when they
+//!   have nothing to do.
+//!
+//! For additional details on FreeRTOS, refer to the FreeRTOS web page at:
+//! http://www.freertos.org/
+//
+//*****************************************************************************
+
+
+//*****************************************************************************
+//
+// The mutex that protects concurrent access of UART from multiple tasks.
+//
+//*****************************************************************************
+SemaphoreHandle_t g_pUARTSemaphore;
+
+QueueHandle_t Q_tailDuty;
+QueueHandle_t Q_mainDuty;
+
+//*****************************************************************************
+//
+// The error routine that is called if the driver library encounters an error.
+//
+//*****************************************************************************
+#ifdef DEBUG
+void
+__error__(char *pcFilename, uint32_t ui32Line)
+{
+}
+
+#endif
+
+//*****************************************************************************
+//
+// This hook is called by FreeRTOS when an stack overflow error is detected.
+//
+//*****************************************************************************
+void
+vApplicationStackOverflowHook(TaskHandle_t *pxTask, char *pcTaskName)
+{
+    //
+    // This function can not return, so loop forever.  Interrupts are disabled
+    // on entry to this function, so no processor interrupts will interrupt
+    // this loop.
+    //
+    while(1)
+    {
+    }
+}
+
+//*****************************************************************************
+//
+// Configure the UART and its pins.  This must be called before UARTprintf().
+//
+//*****************************************************************************
+void
+ConfigureUART(void)
+{
+    //
+    // Enable the GPIO Peripheral used by the UART.
+    //
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+
+    //
+    // Enable UART0
+    //
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+
+    //
+    // Configure GPIO Pins for UART mode.
+    //
+    GPIOPinConfigure(GPIO_PA0_U0RX);
+    GPIOPinConfigure(GPIO_PA1_U0TX);
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+    //
+    // Use the internal 16MHz oscillator as the UART clock source.
+    //
+    UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
+
+    //
+    // Initialize the UART for console I/O.
+    //
+    UARTStdioConfig(0, 115200, 16000000);
+}
+
+//*****************************************************************************
+//
+// Initialize FreeRTOS and start the initial set of tasks.
+//
+//*****************************************************************************
+int
+main(void)
+{
+    //
+    // Set the clocking to run at 50 MHz from the PLL.
+    //
+    SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
+
+    //
+    // Initialize the UART and configure it for 115,200, 8-N-1 operation.
+    //
+    ConfigureUART();
+
+    //
+    // Print demo introduction.
+    //
+    UARTprintf("\n\nWelcome to the EK-TM4C123GXL FreeRTOS Demo!\n");
+
+    //
+    // Create a mutex to guard the UART.
+    //
+    g_pUARTSemaphore = xSemaphoreCreateMutex();
+
+    //
+    // Create a create tail and main Duty Cycle queues
+    //
+    Q_tailDuty = xQueueCreate(1,sizeof(uint32_t));
+    Q_mainDuty = xQueueCreate(1,sizeof(uint32_t));
+
+
+//    if (pdTRUE != xTaskCreate(setPWM, "Set Main Rotor PWM", SET_PWM_STACK, (void *)1, 4, NULL)) {
+//         while(1);
+//     }
+
+//     if (pdTRUE != xTaskCreate(setPWMTail, "Set Tail Rotor PWM", SET_PWM_STACK, (void *)1, 4, NULL)) {
+//         while(1);
+//     }
+
+    //
+    // Create the LED task.
+    //
+    if(LEDTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the switch task.
+    //
+    if(SwitchTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Start the scheduler.  This should not return.
+    //
+    vTaskStartScheduler();
+
+    //
+    // In case the scheduler returns for some reason, print an error and loop
+    // forever.
+    //
+
+    while(1)
+    {
+    }
+}
+
 
 void vAssertCalled( const char * pcFile, unsigned long ulLine ) {
-    (void)pcFile; // 未使用
-    (void)ulLine; // 未使用
+    (void)pcFile; // unused
+    (void)ulLine; // unused
     while (1);
 }
-static void BlinkLED(void*);
-
-
-//static void NullTaskFunc(void *);
-/**
- * main.c
- */
-int main(void)
-{
-    SysCtlClockSet (SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    while (!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF)) ; // busy-wait until GPIOF's bus clock is ready
-    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_1); // PF_1 as output
-    // doesn't need too much drive strength as the RGB LEDs on the TM4C123 launchpad are switched via N-type transistors GPIOPadConfigSet(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_STRENGTH_4MA, GPIO_PIN_TYPE_STD);
-    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0); // off by default
-    if (pdTRUE != xTaskCreate(BlinkLED, "Blinker", 32, (void *)1, 4, NULL))
-    { // (void *)1 is our pvParameters for our task func specifying PF_1
-    while (1) ; // error creating task, out of memory?
-    }
-    vTaskStartScheduler(); // Start FreeRTOS!!
-
-//    while(1);
-//    return 0;
-}
-
-//Blinky function
-//
-void BlinkLED(void *pvParameters) {
-/* While pvParameters is technically a pointer, a pointer is nothing
-* more than an unsigned integer of size equal to the architecture's
-* memory address bus width, which is 32-bits in ARM. We're abusing
-* the parameter then to hold a simple integer value. Could also have
-* used this as a pointer to a memory location holding the value, but
-* our method uses less memory.
-*/
-    const unsigned int whichLed = (unsigned int)pvParameters;
-    // TivaWare GPIO calls require the pin# as a binary bitmask,
-    // not a simple number. Alternately, we could have passed the
-    // bitmask into pvParameters instead of a simple number.
-    const uint8_t whichBit = 1 << whichLed;
-    uint8_t currentValue = 1;
-    while (1)
-    {
-        // XOR toggles the bit on/off each time this runs.
-        currentValue ^= whichBit;
-        GPIOPinWrite(GPIO_PORTF_BASE, whichBit, currentValue);
-        // Suspend this task (so others may run) for 125ms
-        // or as close as we can get with the current RTOS tick setting.
-        // (vTaskDelay takes scheduler ticks as its parameter, so use the
-        // pdMS_TO_TICKS macro to convert milliseconds to ticks.)
-        vTaskDelay(pdMS_TO_TICKS(125));
-    }
-// No way to kill this blinky task unless another task has an
-// xTaskHandle reference to it and can use vTaskDelete() to purge it.
-}
-
-
-//static void NullTaskFunc(void *pvParameters)
-//{
-//    while(1)
-//    {
-//        vTaskDelay(1000);
-//    }
-//}
